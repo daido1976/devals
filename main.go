@@ -12,13 +12,11 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var (
-	inputFile    = flag.String("i", "", "Input .env file (required)")
-	outputFile   = flag.String("o", "", "Output file. If not specified, writes to stdout.")
-	keepComments = flag.Bool("keep-comments", false, "Keep comments and empty lines in the output")
-)
-
 func main() {
+	inputFile := flag.String("i", "", "Input .env file (required)")
+	outputFile := flag.String("o", "", "Output file. If not specified, writes to stdout.")
+	keepComments := flag.Bool("keep-comments", false, "Keep comments and empty lines in the output")
+
 	flag.Parse()
 
 	if *inputFile == "" {
@@ -35,7 +33,7 @@ func main() {
 		fatal("Error converting to env map: %v", err)
 	}
 
-	output := getOutputWriter()
+	output := getOutputWriter(*outputFile)
 	defer output.Close()
 
 	if *keepComments {
@@ -77,12 +75,12 @@ func convertJSONToMap(jsonData string) (map[string]interface{}, error) {
 	return data, err
 }
 
-func getOutputWriter() *os.File {
-	if *outputFile == "" {
+func getOutputWriter(outputFile string) *os.File {
+	if outputFile == "" {
 		return os.Stdout
 	}
 
-	output, err := os.Create(*outputFile)
+	output, err := os.Create(outputFile)
 	if err != nil {
 		fatal("Error creating output file: %v", err)
 	}
