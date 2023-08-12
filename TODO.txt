@@ -1,0 +1,2 @@
+- GoReleaser で Homebrew 化する
+- README 書く
