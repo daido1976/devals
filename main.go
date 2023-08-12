@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/helmfile/vals"
 	"github.com/joho/godotenv"
@@ -40,13 +42,50 @@ func main() {
 
 	m := readOrFail(tempFile.Name())
 
-	env, err := vals.QuotedEnv(m)
+	envLines, err := vals.QuotedEnv(m)
 	if err != nil {
-		fatal("%v", err)
+		log.Fatalf("Error converting map to environment lines: %v", err)
 	}
-	// TODO: 出力先は -o 引数で指定できるようにする（未指定ならば標準出力）
-	for _, l := range env {
-		fmt.Fprintln(os.Stdout, l)
+
+	envMap := make(map[string]string)
+	for _, line := range envLines {
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			envMap[parts[0]] = parts[1]
+		}
+	}
+
+	file, err := os.Open(".env")
+	if err != nil {
+		log.Fatalf("Error opening .env file: %v", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// コメントまたは空行の場合、そのまま出力
+		if strings.HasPrefix(line, "#") || strings.TrimSpace(line) == "" {
+			fmt.Println(line)
+			continue
+		}
+
+		// コメントでない場合、変換された環境変数を出力
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := parts[0]
+			if val, exists := envMap[key]; exists {
+				fmt.Printf("%s=%s\n", key, val)
+			} else {
+				// キーが envMap にない場合はそのまま出力
+				fmt.Println(line)
+			}
+		}
+	}
+
+	if scanner.Err() != nil {
+		log.Fatalf("Error reading .env file: %v", scanner.Err())
 	}
 }
 
