@@ -25,12 +25,20 @@ func main() {
 		log.Fatalf("Error converting to JSON: %v", err)
 	}
 
-	// JSONをファイルに書き込む
-	if err := os.WriteFile("output.json", jsonData, 0644); err != nil {
-		log.Fatalf("Error writing JSON to file: %v", err)
+	// 一時ファイルを作成する
+	tempFile, err := os.CreateTemp("", "temp-output-*.json")
+	if err != nil {
+		log.Fatalf("Error creating temp file: %v", err)
 	}
+	defer os.Remove(tempFile.Name()) // 処理が終わった後、一時ファイルを削除する
 
-	m := readOrFail("output.json")
+	// JSONを一時ファイルに書き込む
+	if _, err := tempFile.Write(jsonData); err != nil {
+		log.Fatalf("Error writing JSON to temp file: %v", err)
+	}
+	tempFile.Close()
+
+	m := readOrFail(tempFile.Name())
 
 	env, err := vals.QuotedEnv(m)
 	if err != nil {
