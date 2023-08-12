@@ -10,7 +10,6 @@ import (
 
 	"github.com/helmfile/vals"
 	"github.com/joho/godotenv"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -20,123 +19,115 @@ var (
 )
 
 func main() {
-	flag.Parse() // コマンドライン引数を解析
+	flag.Parse()
 
 	if *inputFile == "" {
 		fatal("Input file (-i) is required")
 	}
 
-	// dotenv ファイルを読み込む
 	origEnv, err := godotenv.Read(*inputFile)
 	if err != nil {
 		fatal("Error loading .env file: %v", err)
 	}
 
-	// JSON に変換
+	envMap, err := convertToEnvMap(origEnv)
+	if err != nil {
+		fatal("Error converting to env map: %v", err)
+	}
+
+	output := getOutputWriter()
+	defer output.Close()
+
+	if *keepComments {
+		writeWithComments(*inputFile, envMap, output)
+	} else {
+		writeWithoutComments(envMap, output)
+	}
+}
+
+func convertToEnvMap(origEnv map[string]string) (map[string]string, error) {
 	jsonData, err := json.Marshal(origEnv)
 	if err != nil {
-		fatal("Error converting to JSON: %v", err)
+		return nil, err
 	}
 
-	// 一時ファイルを作成する
-	tempFile, err := os.CreateTemp("", "temp-output-*.json")
+	m, err := convertJSONToMap(string(jsonData))
 	if err != nil {
-		fatal("Error creating temp file: %v", err)
+		return nil, err
 	}
-	defer os.Remove(tempFile.Name()) // 処理が終わった後、一時ファイルを削除する
-
-	// JSONを一時ファイルに書き込む
-	if _, err := tempFile.Write(jsonData); err != nil {
-		fatal("Error writing JSON to temp file: %v", err)
-	}
-	tempFile.Close()
-
-	m := readOrFail(tempFile.Name())
 
 	envLines, err := vals.QuotedEnv(m)
 	if err != nil {
-		fatal("%v", err)
+		return nil, err
 	}
 
-	var output *os.File
+	envMap := make(map[string]string)
+	for _, line := range envLines {
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			envMap[parts[0]] = parts[1]
+		}
+	}
+	return envMap, nil
+}
+
+func convertJSONToMap(jsonData string) (map[string]interface{}, error) {
+	var data map[string]interface{}
+	err := json.Unmarshal([]byte(jsonData), &data)
+	return data, err
+}
+
+func getOutputWriter() *os.File {
 	if *outputFile == "" {
-		output = os.Stdout
-	} else {
-		var err error
-		output, err = os.Create(*outputFile)
-		if err != nil {
-			fatal("Error creating output file: %v", err)
-		}
-		defer output.Close()
+		return os.Stdout
 	}
 
-	if *keepComments {
-		envMap := make(map[string]string)
-		for _, line := range envLines {
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				envMap[parts[0]] = parts[1]
-			}
+	output, err := os.Create(*outputFile)
+	if err != nil {
+		fatal("Error creating output file: %v", err)
+	}
+	return output
+}
+
+func writeWithComments(inputFile string, envMap map[string]string, output *os.File) {
+	file, err := os.Open(inputFile)
+	if err != nil {
+		fatal("Error opening .env file: %v", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// コメントまたは空行の場合、そのまま出力
+		if strings.HasPrefix(line, "#") || strings.TrimSpace(line) == "" {
+			fmt.Fprintln(output, line)
+			continue
 		}
 
-		file, err := os.Open(*inputFile)
-		if err != nil {
-			fatal("Error opening .env file: %v", err)
-		}
-		defer file.Close()
-
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			// コメントまたは空行の場合、そのまま出力
-			if strings.HasPrefix(line, "#") || strings.TrimSpace(line) == "" {
+		// コメントでない場合、変換された環境変数を出力
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			key := parts[0]
+			if val, exists := envMap[key]; exists {
+				fmt.Fprintf(output, "%s=%s\n", key, val)
+			} else {
+				// キーが envMap にない場合はそのまま出力
 				fmt.Fprintln(output, line)
-				continue
-			}
-
-			// コメントでない場合、変換された環境変数を出力
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				key := parts[0]
-				if val, exists := envMap[key]; exists {
-					fmt.Fprintf(output, "%s=%s\n", key, val)
-				} else {
-					// キーが envMap にない場合はそのまま出力
-					fmt.Fprintln(output, line)
-				}
 			}
 		}
+	}
 
-		if scanner.Err() != nil {
-			fatal("Error reading .env file: %v", scanner.Err())
-		}
-	} else {
-		for _, l := range envLines {
-			fmt.Fprintln(os.Stdout, l)
-		}
+	if scanner.Err() != nil {
+		fatal("Error reading .env file: %v", scanner.Err())
 	}
 }
 
-func readNodesOrFail(f string) []yaml.Node {
-	nodes, err := vals.Inputs(f)
-	if err != nil {
-		fatal("%v", err)
+func writeWithoutComments(envMap map[string]string, output *os.File) {
+	for key, val := range envMap {
+		fmt.Fprintf(output, "%s=%s\n", key, val)
 	}
-	return nodes
-}
-
-func readOrFail(f string) map[string]interface{} {
-	nodes := readNodesOrFail(f)
-	if len(nodes) == 0 {
-		fatal("no document found")
-	}
-	var nodeValue map[string]interface{}
-	err := nodes[0].Decode(&nodeValue)
-	if err != nil {
-		fatal("%v", err)
-	}
-	return nodeValue
 }
 
 func fatal(format string, args ...interface{}) {
