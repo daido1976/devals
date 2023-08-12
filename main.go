@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -15,9 +14,9 @@ import (
 )
 
 var (
-	keepComments = flag.Bool("keep-comments", false, "Keep comments and empty lines in the output")
 	inputFile    = flag.String("i", "", "Input .env file (required)")
 	outputFile   = flag.String("o", "", "Output file. If not specified, writes to stdout.")
+	keepComments = flag.Bool("keep-comments", false, "Keep comments and empty lines in the output")
 )
 
 func main() {
@@ -30,25 +29,25 @@ func main() {
 	// dotenv ファイルを読み込む
 	origEnv, err := godotenv.Read(*inputFile)
 	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		fatal("Error loading .env file: %v", err)
 	}
 
 	// JSON に変換
 	jsonData, err := json.Marshal(origEnv)
 	if err != nil {
-		log.Fatalf("Error converting to JSON: %v", err)
+		fatal("Error converting to JSON: %v", err)
 	}
 
 	// 一時ファイルを作成する
 	tempFile, err := os.CreateTemp("", "temp-output-*.json")
 	if err != nil {
-		log.Fatalf("Error creating temp file: %v", err)
+		fatal("Error creating temp file: %v", err)
 	}
 	defer os.Remove(tempFile.Name()) // 処理が終わった後、一時ファイルを削除する
 
 	// JSONを一時ファイルに書き込む
 	if _, err := tempFile.Write(jsonData); err != nil {
-		log.Fatalf("Error writing JSON to temp file: %v", err)
+		fatal("Error writing JSON to temp file: %v", err)
 	}
 	tempFile.Close()
 
@@ -66,7 +65,7 @@ func main() {
 		var err error
 		output, err = os.Create(*outputFile)
 		if err != nil {
-			log.Fatalf("Error creating output file: %v", err)
+			fatal("Error creating output file: %v", err)
 		}
 		defer output.Close()
 	}
@@ -82,7 +81,7 @@ func main() {
 
 		file, err := os.Open(*inputFile)
 		if err != nil {
-			log.Fatalf("Error opening .env file: %v", err)
+			fatal("Error opening .env file: %v", err)
 		}
 		defer file.Close()
 
@@ -110,7 +109,7 @@ func main() {
 		}
 
 		if scanner.Err() != nil {
-			log.Fatalf("Error reading .env file: %v", scanner.Err())
+			fatal("Error reading .env file: %v", scanner.Err())
 		}
 	} else {
 		for _, l := range envLines {
