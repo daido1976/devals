@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -13,10 +14,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var (
+	keepComments = flag.Bool("keep-comments", false, "Keep comments and empty lines in the output")
+	inputFile    = flag.String("i", "", "Input .env file (required)")
+	outputFile   = flag.String("o", "", "Output file. If not specified, writes to stdout.")
+)
+
 func main() {
+	flag.Parse() // コマンドライン引数を解析
+
+	if *inputFile == "" {
+		fatal("Input file (-i) is required")
+	}
+
 	// dotenv ファイルを読み込む
-	// TODO: ファイル名は -i 引数で指定できるようにする
-	origEnv, err := godotenv.Read(".env")
+	origEnv, err := godotenv.Read(*inputFile)
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
@@ -44,48 +56,66 @@ func main() {
 
 	envLines, err := vals.QuotedEnv(m)
 	if err != nil {
-		log.Fatalf("Error converting map to environment lines: %v", err)
+		fatal("%v", err)
 	}
 
-	envMap := make(map[string]string)
-	for _, line := range envLines {
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
-			envMap[parts[0]] = parts[1]
+	var output *os.File
+	if *outputFile == "" {
+		output = os.Stdout
+	} else {
+		var err error
+		output, err = os.Create(*outputFile)
+		if err != nil {
+			log.Fatalf("Error creating output file: %v", err)
 		}
+		defer output.Close()
 	}
 
-	file, err := os.Open(".env")
-	if err != nil {
-		log.Fatalf("Error opening .env file: %v", err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		// コメントまたは空行の場合、そのまま出力
-		if strings.HasPrefix(line, "#") || strings.TrimSpace(line) == "" {
-			fmt.Println(line)
-			continue
-		}
-
-		// コメントでない場合、変換された環境変数を出力
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
-			key := parts[0]
-			if val, exists := envMap[key]; exists {
-				fmt.Printf("%s=%s\n", key, val)
-			} else {
-				// キーが envMap にない場合はそのまま出力
-				fmt.Println(line)
+	if *keepComments {
+		envMap := make(map[string]string)
+		for _, line := range envLines {
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				envMap[parts[0]] = parts[1]
 			}
 		}
-	}
 
-	if scanner.Err() != nil {
-		log.Fatalf("Error reading .env file: %v", scanner.Err())
+		file, err := os.Open(*inputFile)
+		if err != nil {
+			log.Fatalf("Error opening .env file: %v", err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			// コメントまたは空行の場合、そのまま出力
+			if strings.HasPrefix(line, "#") || strings.TrimSpace(line) == "" {
+				fmt.Fprintln(output, line)
+				continue
+			}
+
+			// コメントでない場合、変換された環境変数を出力
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				key := parts[0]
+				if val, exists := envMap[key]; exists {
+					fmt.Fprintf(output, "%s=%s\n", key, val)
+				} else {
+					// キーが envMap にない場合はそのまま出力
+					fmt.Fprintln(output, line)
+				}
+			}
+		}
+
+		if scanner.Err() != nil {
+			log.Fatalf("Error reading .env file: %v", scanner.Err())
+		}
+	} else {
+		for _, l := range envLines {
+			fmt.Fprintln(os.Stdout, l)
+		}
 	}
 }
 
