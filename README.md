@@ -26,9 +26,13 @@ You can also download the binary from the [releases page](https://github.com/dai
 $ devals -h
 Usage of devals:
   -i string
-        Input .env file (required)
+        Input dotenv format file (required)
   -keep-comments
         Keep comments and empty lines in the output
   -o string
         Output file. If not specified, writes to stdout.
 ```
+
+## Supported Backends
+
+See [`helmfile/vals` documentation](https://github.com/helmfile/vals#supported-backends) for supported backends.
