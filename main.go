@@ -43,6 +43,7 @@ func main() {
 	}
 }
 
+// Converts the original environment map into a new map suitable for output.
 func convertToEnvMap(origEnv map[string]string) (map[string]string, error) {
 	jsonData, err := json.Marshal(origEnv)
 	if err != nil {
@@ -69,12 +70,14 @@ func convertToEnvMap(origEnv map[string]string) (map[string]string, error) {
 	return envMap, nil
 }
 
+// Converts JSON string data to a map.
 func convertJSONToMap(jsonData string) (map[string]interface{}, error) {
 	var data map[string]interface{}
 	err := json.Unmarshal([]byte(jsonData), &data)
 	return data, err
 }
 
+// Gets the output writer based on the specified file path or defaults to stdout.
 func getOutputWriter(outputFile string) *os.File {
 	if outputFile == "" {
 		return os.Stdout
@@ -87,6 +90,7 @@ func getOutputWriter(outputFile string) *os.File {
 	return output
 }
 
+// Writes to the output with original comments and empty lines preserved.
 func writeWithComments(inputFile string, envMap map[string]string, output *os.File) {
 	file, err := os.Open(inputFile)
 	if err != nil {
@@ -98,20 +102,20 @@ func writeWithComments(inputFile string, envMap map[string]string, output *os.Fi
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// コメントまたは空行の場合、そのまま出力
+		// If it's a comment or an empty line, output as is.
 		if strings.HasPrefix(line, "#") || strings.TrimSpace(line) == "" {
 			fmt.Fprintln(output, line)
 			continue
 		}
 
-		// コメントでない場合、変換された環境変数を出力
+		// If not a comment, output the converted environment variable.
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) == 2 {
 			key := parts[0]
 			if val, exists := envMap[key]; exists {
 				fmt.Fprintf(output, "%s=%s\n", key, val)
 			} else {
-				// キーが envMap にない場合はそのまま出力
+				// If the key is not in envMap, output as is.
 				fmt.Fprintln(output, line)
 			}
 		}
@@ -122,12 +126,14 @@ func writeWithComments(inputFile string, envMap map[string]string, output *os.Fi
 	}
 }
 
+// Writes to the output without preserving the original comments and empty lines.
 func writeWithoutComments(envMap map[string]string, output *os.File) {
 	for key, val := range envMap {
 		fmt.Fprintf(output, "%s=%s\n", key, val)
 	}
 }
 
+// Exits the program with an error message.
 func fatal(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, format+"\n", args...)
 	os.Exit(1)
