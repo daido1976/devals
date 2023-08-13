@@ -1,6 +1,8 @@
 # devals
 
-`devals` is a tool built on top of [helmfile/vals](https://github.com/helmfile/vals).
+`devals` is a CLI tool that safely manages environment variables in the development environment.
+
+`devals` is built on [helmfile/vals](https://github.com/helmfile/vals).
 
 While `helmfile/vals` only accepts JSON/YAML format as input, `devals` supports the dotenv format. The name "devals" is short for "dotenv vals".
 
