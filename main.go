@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	inputFile := flag.String("i", "", "Input .env file (required)")
+	inputFile := flag.String("i", "", "Input dotenv format file (required)")
 	outputFile := flag.String("o", "", "Output file. If not specified, writes to stdout.")
 	keepComments := flag.Bool("keep-comments", false, "Keep comments and empty lines in the output")
 
@@ -25,7 +25,7 @@ func main() {
 
 	origEnv, err := godotenv.Read(*inputFile)
 	if err != nil {
-		fatal("Error loading .env file: %v", err)
+		fatal("Error loading dotenv format file: %v", err)
 	}
 
 	envMap, err := convertToEnvMap(origEnv)
