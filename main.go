@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -53,36 +52,31 @@ func getOutputWriter(outputFile string) *os.File {
 
 // TODO: Currently, the 'input' is of type 'string', which may potentially lead to higher memory consumption. Consider changing it to a more memory-efficient type.
 func run(input string, output io.Writer, keepComments bool) error {
-	origEnv, err := godotenv.Unmarshal(input)
+	envMap, err := godotenv.Unmarshal(input)
 	if err != nil {
 		return fmt.Errorf("error loading dotenv format file: %v", err)
 	}
 
-	envMap, err := convertToEnvMap(origEnv)
+	resolvedEnvMap, err := resolveRefInEnvMap(envMap)
 	if err != nil {
 		return fmt.Errorf("error converting to env map: %v", err)
 	}
 
 	if keepComments {
-		writeWithComments(input, envMap, output)
+		writeWithComments(input, resolvedEnvMap, output)
 	} else {
-		writeWithoutComments(envMap, output)
+		writeWithoutComments(resolvedEnvMap, output)
 	}
 
 	return nil
 }
 
-// Converts the original environment map into a new map suitable for output.
-func convertToEnvMap(origEnv map[string]string) (map[string]string, error) {
-	jsonData, err := json.Marshal(origEnv)
-	if err != nil {
-		return nil, err
-	}
-
-	var data map[string]interface{}
-	err = json.Unmarshal(jsonData, &data)
-	if err != nil {
-		return nil, err
+// Resolves references in the original environment map.
+func resolveRefInEnvMap(envMap map[string]string) (map[string]string, error) {
+	// NOTE: Cast the map to map[string]any for vals.QuotedEnv.
+	data := make(map[string]any)
+	for key, value := range envMap {
+		data[key] = value
 	}
 
 	envLines, err := vals.QuotedEnv(data)
@@ -90,14 +84,14 @@ func convertToEnvMap(origEnv map[string]string) (map[string]string, error) {
 		return nil, err
 	}
 
-	envMap := make(map[string]string)
+	m := make(map[string]string)
 	for _, line := range envLines {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) == 2 {
-			envMap[parts[0]] = parts[1]
+			m[parts[0]] = parts[1]
 		}
 	}
-	return envMap, nil
+	return m, nil
 }
 
 // Writes to the output with original comments and empty lines preserved.
@@ -138,7 +132,7 @@ func writeWithoutComments(envMap map[string]string, output io.Writer) {
 }
 
 // Exits the program with an error message.
-func fatal(format string, args ...interface{}) {
+func fatal(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", args...)
 	os.Exit(1)
 }
