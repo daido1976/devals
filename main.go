@@ -79,12 +79,13 @@ func convertToEnvMap(origEnv map[string]string) (map[string]string, error) {
 		return nil, err
 	}
 
-	m, err := convertJSONToMap(string(jsonData))
+	var data map[string]interface{}
+	err = json.Unmarshal(jsonData, &data)
 	if err != nil {
 		return nil, err
 	}
 
-	envLines, err := vals.QuotedEnv(m)
+	envLines, err := vals.QuotedEnv(data)
 	if err != nil {
 		return nil, err
 	}
@@ -97,14 +98,6 @@ func convertToEnvMap(origEnv map[string]string) (map[string]string, error) {
 		}
 	}
 	return envMap, nil
-}
-
-// TODO: make inline
-// Converts JSON string data to a map.
-func convertJSONToMap(jsonData string) (map[string]interface{}, error) {
-	var data map[string]interface{}
-	err := json.Unmarshal([]byte(jsonData), &data)
-	return data, err
 }
 
 // Writes to the output with original comments and empty lines preserved.
