@@ -24,24 +24,52 @@ func main() {
 		fatal("Input file (-i) is required")
 	}
 
-	origEnv, err := godotenv.Read(*inputFile)
+	input, err := os.ReadFile(*inputFile)
 	if err != nil {
-		fatal("Error loading dotenv format file: %v", err)
-	}
-
-	envMap, err := convertToEnvMap(origEnv)
-	if err != nil {
-		fatal("Error converting to env map: %v", err)
+		fatal("Error opening input file: %v", err)
 	}
 
 	output := getOutputWriter(*outputFile)
 	defer output.Close()
 
-	if *keepComments {
-		writeWithComments(*inputFile, envMap, output)
+	err = run(string(input), output, *keepComments)
+	if err != nil {
+		fatal("Error converting file: %v", err)
+	}
+}
+
+// Gets the output writer based on the specified file path or defaults to stdout.
+func getOutputWriter(outputFile string) *os.File {
+	if outputFile == "" {
+		return os.Stdout
+	}
+
+	output, err := os.Create(outputFile)
+	if err != nil {
+		fatal("Error creating output file: %v", err)
+	}
+	return output
+}
+
+// TODO: Currently, the 'input' is of type 'string', which may potentially lead to higher memory consumption. Consider changing it to a more memory-efficient type.
+func run(input string, output io.Writer, keepComments bool) error {
+	origEnv, err := godotenv.Unmarshal(input)
+	if err != nil {
+		return fmt.Errorf("error loading dotenv format file: %v", err)
+	}
+
+	envMap, err := convertToEnvMap(origEnv)
+	if err != nil {
+		return fmt.Errorf("error converting to env map: %v", err)
+	}
+
+	if keepComments {
+		writeWithComments(input, envMap, output)
 	} else {
 		writeWithoutComments(envMap, output)
 	}
+
+	return nil
 }
 
 // Converts the original environment map into a new map suitable for output.
@@ -71,6 +99,7 @@ func convertToEnvMap(origEnv map[string]string) (map[string]string, error) {
 	return envMap, nil
 }
 
+// TODO: make inline
 // Converts JSON string data to a map.
 func convertJSONToMap(jsonData string) (map[string]interface{}, error) {
 	var data map[string]interface{}
@@ -78,28 +107,9 @@ func convertJSONToMap(jsonData string) (map[string]interface{}, error) {
 	return data, err
 }
 
-// Gets the output writer based on the specified file path or defaults to stdout.
-func getOutputWriter(outputFile string) *os.File {
-	if outputFile == "" {
-		return os.Stdout
-	}
-
-	output, err := os.Create(outputFile)
-	if err != nil {
-		fatal("Error creating output file: %v", err)
-	}
-	return output
-}
-
 // Writes to the output with original comments and empty lines preserved.
-func writeWithComments(inputFile string, envMap map[string]string, output io.Writer) {
-	file, err := os.Open(inputFile)
-	if err != nil {
-		fatal("Error opening .env file: %v", err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
+func writeWithComments(input string, envMap map[string]string, output io.Writer) {
+	scanner := bufio.NewScanner(strings.NewReader(input))
 	for scanner.Scan() {
 		line := scanner.Text()
 
