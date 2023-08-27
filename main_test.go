@@ -56,6 +56,7 @@ foo="ref+echo://foo"
 `,
 				keepComments: false,
 			},
+			// Testing only one key-value pair due to non-deterministic map key order in Go.
 			wantOutput: `foo=foo
 `,
 			wantErr: false,
