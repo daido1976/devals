@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -91,7 +92,7 @@ func getOutputWriter(outputFile string) *os.File {
 }
 
 // Writes to the output with original comments and empty lines preserved.
-func writeWithComments(inputFile string, envMap map[string]string, output *os.File) {
+func writeWithComments(inputFile string, envMap map[string]string, output io.Writer) {
 	file, err := os.Open(inputFile)
 	if err != nil {
 		fatal("Error opening .env file: %v", err)
@@ -127,7 +128,7 @@ func writeWithComments(inputFile string, envMap map[string]string, output *os.Fi
 }
 
 // Writes to the output without preserving the original comments and empty lines.
-func writeWithoutComments(envMap map[string]string, output *os.File) {
+func writeWithoutComments(envMap map[string]string, output io.Writer) {
 	for key, val := range envMap {
 		fmt.Fprintf(output, "%s=%s\n", key, val)
 	}
