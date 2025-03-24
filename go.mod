@@ -62,7 +62,7 @@ require (
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fujiwara/tfstate-lookup v1.1.1 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
